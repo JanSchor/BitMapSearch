@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
+#include <ctype.h>
 
 // Error codes
 #define TOO_MANY_ARGS_CODE -1
@@ -70,16 +72,23 @@ void initBitMap(BitMap* bm, int sizeX, int sizeY) {
 
 // Loades bitmap file, returns 1 if bitmap is invalid
 int loadBitMap(char fileName[MAX_FILE_NAME_LENGTH]) {
-    char headerLine[MAX_HEADER_LINE_LENGTH];
     int sizeX;
     int sizeY;
     FILE* mapFile = fopen(fileName, "r");
-    fgets(headerLine, sizeof(headerLine), mapFile);
-    sscanf(headerLine, "%d %d", &sizeY, &sizeX);
-
+    if (!mapFile) {
+        return 1;
+    }
+    
+    while (fscanf(mapFile, "%d %d", &sizeY, &sizeX) != 2) {
+        if (fgetc(mapFile) == EOF) {
+            fclose(mapFile);
+            return 1;
+        }
+    }
+    
     initBitMap(&bitMap, sizeX, sizeY);
     if (allocBitMap(&bitMap)) {
-        fprintf(stderr, "Failed to allocate memory for bitmap!\n");
+        fclose(mapFile);
         return 1;
     }
 
@@ -88,9 +97,12 @@ int loadBitMap(char fileName[MAX_FILE_NAME_LENGTH]) {
     int idxX, idxY;
     int val0, val1;
     int i;
-    for (i = 0; i < sizeX*sizeY && bitMapBitC != EOF; i++) {
-        bitMapBitC = fgetc(mapFile);
-        if ((bitMapBitC != '0') == (bitMapBitC != '1')) return 1;
+    for (i = 0; i < sizeX*sizeY && bitMapBitC != EOF; bitMapBitC = fgetc(mapFile)) {
+        if (isspace(bitMapBitC) || !bitMapBitC) continue;
+        else if (!(bitMapBitC == '0' || bitMapBitC == '1')) {
+            fclose(mapFile);
+            return 1;
+        } 
         bitMapBit = bitMapBitC - '0';
         idxX = i % sizeX;
         idxY = i / sizeX;
@@ -100,8 +112,9 @@ int loadBitMap(char fileName[MAX_FILE_NAME_LENGTH]) {
         else val1 = (bitMap.map[idxY][idxX-1][1] + 1) * bitMapBit;
         bitMap.map[idxY][idxX][0] = val0;
         bitMap.map[idxY][idxX][1] = val1;
-        fgetc(mapFile);
+        i++;
     }
+    fclose(mapFile);
     if (i < sizeX*sizeY) return 1;
     return 0;
 }
@@ -167,11 +180,12 @@ int findSquare(char fileName[MAX_FILE_NAME_LENGTH]) {
             smaller = val0*(val0<val1) + val1*(val1<=val0);
             if (smaller <= largestSquareV) continue;
             for (int diagonal = smaller; diagonal > largestSquareV; diagonal--) {
-                if (bitMap.map[rowIdx-smaller+1][colIdx][1] >= smaller &&
-                    bitMap.map[rowIdx][colIdx-smaller+1][0] >= smaller) {
+                if (bitMap.map[rowIdx-diagonal+1][colIdx][1] >= diagonal &&
+                    bitMap.map[rowIdx][colIdx-diagonal+1][0] >= diagonal) {
                         largestSquareV = diagonal;
                         largestSquareX = colIdx;
                         largestSquareY = rowIdx;
+                        break;
                 }
             }
         }
