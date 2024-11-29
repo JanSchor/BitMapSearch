@@ -8,14 +8,18 @@
 #define TOO_FEW_ARGS_CODE 0
 #define WRONG_ARGUMENT_CODE 10
 
+// Program argument codes
 #define HELP_ARGUMENT_CODE 1
 #define TEST_ARGUMENT_CODE 2
 #define HLINE_ARGUMENT_CODE 3
 #define VLINE_ARGUMENT_CODE 4
 #define SQUARE_ARGUMENT_CODE 5
 
+// String length defines
 #define MAX_HEADER_LINE_LENGTH 128
+#define MAX_FILE_NAME_LENGTH 128
 
+// Bitmap struct
 typedef struct BitMap {
     int*** map;
     int sizeX;
@@ -26,6 +30,7 @@ typedef struct BitMap {
 BitMap bitMap;
 
 
+// Frees the memory for BitMap
 void freeBitMap(BitMap* bitMap) {
     for (int mapRowIdx = 0; mapRowIdx < bitMap->sizeY; mapRowIdx++) {
         for (int mapColIdx = 0; mapColIdx < bitMap->sizeX; mapColIdx++) {
@@ -36,6 +41,7 @@ void freeBitMap(BitMap* bitMap) {
     free(bitMap->map);
 }
 
+// Allocates the memory for bitmap
 int allocBitMap(BitMap* bm) {
     bm->map = malloc(bm->sizeY * sizeof(int**));
     if (!bm->map) return 1;
@@ -56,20 +62,21 @@ int allocBitMap(BitMap* bm) {
     return 0;
 }
 
+// Initializes size for bitmap based on arguments
 void initBitMap(BitMap* bm, int sizeX, int sizeY) {
     bm->sizeX = sizeX;
     bm->sizeY = sizeY;
 }
 
-
-int loadBitMap() {
+// Loades bitmap file, returns 1 if bitmap is invalid
+int loadBitMap(char fileName[MAX_FILE_NAME_LENGTH]) {
     char headerLine[MAX_HEADER_LINE_LENGTH];
     int sizeX;
     int sizeY;
-    fgets(headerLine, sizeof(headerLine), stdin);
+    FILE* mapFile = fopen(fileName, "r");
+    fgets(headerLine, sizeof(headerLine), mapFile);
     sscanf(headerLine, "%d %d", &sizeY, &sizeX);
 
-    printf("%d, %d\n", sizeX, sizeY);
     initBitMap(&bitMap, sizeX, sizeY);
     if (allocBitMap(&bitMap)) {
         fprintf(stderr, "Failed to allocate memory for bitmap!\n");
@@ -81,8 +88,9 @@ int loadBitMap() {
     int idxX, idxY;
     int val0, val1;
     int i;
-    for (i = 0; i < sizeX*sizeY && bitMapBitC != EOF; bitMapBitC = fgetc(stdin)) {
-        if (!(bitMapBitC == '0' || bitMapBitC == '1')) continue;
+    for (i = 0; i < sizeX*sizeY && bitMapBitC != EOF; i++) {
+        bitMapBitC = fgetc(mapFile);
+        if ((bitMapBitC != '0') == (bitMapBitC != '1')) return 1;
         bitMapBit = bitMapBitC - '0';
         idxX = i % sizeX;
         idxY = i / sizeX;
@@ -92,81 +100,56 @@ int loadBitMap() {
         else val1 = (bitMap.map[idxY][idxX-1][1] + 1) * bitMapBit;
         bitMap.map[idxY][idxX][0] = val0;
         bitMap.map[idxY][idxX][1] = val1;
-        i++;
+        fgetc(mapFile);
     }
     if (i < sizeX*sizeY) return 1;
     return 0;
 }
 
-int testBitMap() {
-    int exitStatus = loadBitMap();
+// Tests if bitmap is valid
+int testBitMap(char fileName[MAX_FILE_NAME_LENGTH]) {
+    int exitStatus = loadBitMap(fileName);
     freeBitMap(&bitMap);
     if (exitStatus == 1) fprintf(stderr, "Invalid");
     else printf("Valid");
     return exitStatus;
 }
 
-int findHLine() {
-    if (loadBitMap()) {
-        fprintf(stderr, "Failed to load the bitmap!\n");
-        freeBitMap(&bitMap);
-        return 1;
-    }
-    int longestHLineX = -1;
-    int longestHLineY = -1;
-    int longestHLineV = 0;
-    for (int rowIdx = 0; rowIdx < bitMap.sizeY; rowIdx++) {
-        for (int colIdx = 0; colIdx < bitMap.sizeX; colIdx++) {
-            if (bitMap.map[rowIdx][colIdx][1] > longestHLineV) {
-                longestHLineV = bitMap.map[rowIdx][colIdx][1];
-                longestHLineX = colIdx;
-                longestHLineY = rowIdx;
-            }
-        }
-    }
-    if (longestHLineV == 0) {
-        printf("Not found");
-    } else {
-        printf("%d %d %d %d\n",
-            longestHLineY, longestHLineX-longestHLineV+1,
-            longestHLineY, longestHLineX);
-    }
-    freeBitMap(&bitMap);
-    return 0;
-}
-
-int findVLine() {
-    if (loadBitMap()) {
+// Finds the longes line based on argument
+int findLine(int lineType, char fileName[MAX_FILE_NAME_LENGTH]) { // 0 for vertical, 1 for horizontal
+    if (loadBitMap(fileName)) {
         fprintf(stderr, "Failed to load the bitmap!\n");
         freeBitMap(&bitMap);
         return 1;
     }
 
-    int longestVLineX = -1;
-    int longestVLineY = -1;
-    int longestVLineV = 0;
+    int longestLineX = -1;
+    int longestLineY = -1;
+    int longestLineV = 0;
     for (int rowIdx = 0; rowIdx < bitMap.sizeY; rowIdx++) {
         for (int colIdx = 0; colIdx < bitMap.sizeX; colIdx++) {
-            if (bitMap.map[rowIdx][colIdx][0] > longestVLineV) {
-                longestVLineV = bitMap.map[rowIdx][colIdx][0];
-                longestVLineX = colIdx;
-                longestVLineY = rowIdx;
+            if (bitMap.map[rowIdx][colIdx][lineType] > longestLineV) {
+                longestLineV = bitMap.map[rowIdx][colIdx][lineType];
+                longestLineX = colIdx;
+                longestLineY = rowIdx;
             }
         }
     }
-    if (longestVLineV == 0) {
+    if (longestLineV == 0) {
         printf("Not found");
     } else {
         printf("%d %d %d %d\n",
-            longestVLineY-longestVLineV+1, longestVLineX,
-            longestVLineY, longestVLineX);
+            longestLineY - longestLineV*!lineType + !lineType,
+            longestLineX - longestLineV*lineType + lineType,
+            longestLineY, longestLineX);
     }
     freeBitMap(&bitMap);
     return 0;
 }
 
-int findSquare() {
-    if (loadBitMap()) {
+// Finds the largest square inside bitmap
+int findSquare(char fileName[MAX_FILE_NAME_LENGTH]) {
+    if (loadBitMap(fileName)) {
         fprintf(stderr, "Failed to load the bitmap!\n");
         freeBitMap(&bitMap);
         return 1;
@@ -209,7 +192,7 @@ int findSquare() {
 int helpPrint() {
     printf(
         "The program should be run with arguments after the name of file.\n"
-        "--help - argument prints this help string.\n"
+        "--help - prints this help string.\n"
         "test - checks the bitmap file and returns if something is wrong.\n"
         "hline - finds the longest horizontal line in the bitmap.\n"
         "vline - finds the longest vertical line in the bitmap.\n"
@@ -229,8 +212,10 @@ int helpPrint() {
     10 for right argument count, but wrong argument (error) */
 int programStartType(int argc, char *argv[]) {
     int programRunType = TOO_MANY_ARGS_CODE;
-    if (argc == 1) programRunType = TOO_FEW_ARGS_CODE;
-    else if (argc == 2) {
+    if ((argc == 1) || (argc == 2 && !(strcmp(argv[1], "--help") == 0))) {
+        programRunType = TOO_FEW_ARGS_CODE;
+    }
+    else if (argc == 3 || strcmp(argv[1], "--help") == 0) {
         if (strcmp(argv[1], "--help") == 0) programRunType = HELP_ARGUMENT_CODE;
         else if (strcmp(argv[1], "test") == 0) programRunType = TEST_ARGUMENT_CODE;
         else if (strcmp(argv[1], "hline") == 0) programRunType = HLINE_ARGUMENT_CODE;
@@ -264,13 +249,13 @@ int main(int argc, char *argv[]) {
         case HELP_ARGUMENT_CODE:
             return helpPrint();
         case TEST_ARGUMENT_CODE:
-            return testBitMap();
+            return testBitMap(argv[2]);
         case HLINE_ARGUMENT_CODE:
-            return findHLine();
+            return findLine(1, argv[2]);
         case VLINE_ARGUMENT_CODE:
-            return findVLine();
+            return findLine(0, argv[2]);
         case SQUARE_ARGUMENT_CODE:
-            return findSquare();
+            return findSquare(argv[2]);
     }
     
     fprintf(stderr, "No program run type found!\n");
