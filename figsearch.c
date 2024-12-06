@@ -6,19 +6,29 @@
 #include <ctype.h>
 
 // Error codes
+
+// Code for starting program with too many arguments
 #define TOO_MANY_ARGS_CODE -1
+// Code for starting program with too few arguments
 #define TOO_FEW_ARGS_CODE 0
+// Code for starting program with wrong arguments
 #define WRONG_ARGUMENT_CODE 10
 
-// Program argument codes
+
+// Program start arguments
+
+// Code for starting program with --help argument
 #define HELP_ARGUMENT_CODE 1
+// Code for starting program with test argument
 #define TEST_ARGUMENT_CODE 2
+// Code for starting program with hline argument
 #define HLINE_ARGUMENT_CODE 3
+// Code for starting program with vline argument
 #define VLINE_ARGUMENT_CODE 4
+// Code for starting program with square argument
 #define SQUARE_ARGUMENT_CODE 5
 
-// String length defines
-#define MAX_HEADER_LINE_LENGTH 128
+// Max file name length for input file
 #define MAX_FILE_NAME_LENGTH 128
 
 // Bitmap struct
@@ -29,6 +39,7 @@ typedef struct BitMap {
 } BitMap;
 
 
+// Global bitmap declaration
 BitMap bitMap;
 
 
@@ -79,13 +90,16 @@ int loadBitMap(char fileName[MAX_FILE_NAME_LENGTH]) {
         return 1;
     }
     
+    // Check for first two numbers (size of the bitmap)
     while (fscanf(mapFile, "%d %d", &sizeY, &sizeX) != 2) {
+        // if EOF found before second number, error
         if (fgetc(mapFile) == EOF) {
             fclose(mapFile);
             return 1;
         }
     }
     
+    // Set size of the map and allocate memory for BitMap struct
     initBitMap(&bitMap, sizeX, sizeY);
     if (allocBitMap(&bitMap)) {
         fclose(mapFile);
@@ -96,31 +110,47 @@ int loadBitMap(char fileName[MAX_FILE_NAME_LENGTH]) {
     int bitMapBit;
     int idxX, idxY;
     int val0, val1;
-    int i;
+    int i; // Needs to be declared outside of the loop
+    // Looping through every character of the file until EOF not found or end of the map reached
     for (i = 0; i < sizeX*sizeY && bitMapBitC != EOF; bitMapBitC = fgetc(mapFile)) {
+        // Whitespace jumps to the start of the loop
         if (isspace(bitMapBitC) || !bitMapBitC) continue;
+
+        // Check for non 0 or 1 characters
         else if (!(bitMapBitC == '0' || bitMapBitC == '1')) {
             fclose(mapFile);
             return 1;
-        } 
+        }
+        // Convert from char to number
         bitMapBit = bitMapBitC - '0';
         idxX = i % sizeX;
         idxY = i / sizeX;
+
+        // Val 0 is number of 1s in the column (up)
         if (idxY == 0) val0 = bitMapBit;
         else val0 = (bitMap.map[idxY-1][idxX][0] + 1) * bitMapBit;
+
+        // Val 1 is number of 1s in the row (to the left)
         if (idxX == 0) val1 = bitMapBit;
         else val1 = (bitMap.map[idxY][idxX-1][1] + 1) * bitMapBit;
+
+        // Setting vals to the both elements of the position in the map
         bitMap.map[idxY][idxX][0] = val0;
         bitMap.map[idxY][idxX][1] = val1;
+
+        // Increment inly on 0 or 1
         i++;
     }
     fclose(mapFile);
+
+    // Return 1 if bitmap was not filled yet
     if (i < sizeX*sizeY) return 1;
     return 0;
 }
 
 // Tests if bitmap is valid
 int testBitMap(char fileName[MAX_FILE_NAME_LENGTH]) {
+    // Exit status takes 1 if bitmap is invalid
     int exitStatus = loadBitMap(fileName);
     freeBitMap(&bitMap);
     if (exitStatus == 1) fprintf(stderr, "Invalid");
@@ -129,28 +159,36 @@ int testBitMap(char fileName[MAX_FILE_NAME_LENGTH]) {
 }
 
 // Finds the longes line based on argument
-int findLine(int lineType, char fileName[MAX_FILE_NAME_LENGTH]) { // 0 for vertical, 1 for horizontal
+// 0 for vertical, 1 for horizontal
+int findLine(int lineType, char fileName[MAX_FILE_NAME_LENGTH]) {
     if (loadBitMap(fileName)) {
         fprintf(stderr, "Failed to load the bitmap!\n");
         freeBitMap(&bitMap);
         return 1;
     }
 
+    // Setting coords of default line to -1 and length to 0
     int longestLineX = -1;
     int longestLineY = -1;
     int longestLineV = 0;
+
+    // Looping through every element of the map
     for (int rowIdx = 0; rowIdx < bitMap.sizeY; rowIdx++) {
         for (int colIdx = 0; colIdx < bitMap.sizeX; colIdx++) {
+            // checking if the current line is longest
             if (bitMap.map[rowIdx][colIdx][lineType] > longestLineV) {
+                // Replacing values with current longest line
                 longestLineV = bitMap.map[rowIdx][colIdx][lineType];
                 longestLineX = colIdx;
                 longestLineY = rowIdx;
             }
         }
     }
+    // Printing Not found if line was not found
     if (longestLineV == 0) {
         printf("Not found");
     } else {
+        // Printing coords of the line if line was found
         printf("%d %d %d %d\n",
             longestLineY - longestLineV*!lineType + !lineType,
             longestLineX - longestLineV*lineType + lineType,
@@ -168,18 +206,25 @@ int findSquare(char fileName[MAX_FILE_NAME_LENGTH]) {
         return 1;
     }
 
+    // Setting coords of default square to -1 and length to 0
     int largestSquareX = -1;
     int largestSquareY = -1;
     int largestSquareV = 0;
-    int smaller;
+    int smaller; // buffer for smaller of the two values for each element
     int val0, val1;
     for (int rowIdx = 0; rowIdx < bitMap.sizeY; rowIdx++) {
         for (int colIdx = 0; colIdx < bitMap.sizeX; colIdx++) {
+            // Getting the values to separate variables for easier handeling
             val0 = bitMap.map[rowIdx][colIdx][0];
             val1 = bitMap.map[rowIdx][colIdx][1];
+
+            // Loading smaller buffer
             smaller = val0*(val0<val1) + val1*(val1<=val0);
             if (smaller <= largestSquareV) continue;
+
+            // Checking for all available sizes of the squares
             for (int diagonal = smaller; diagonal > largestSquareV; diagonal--) {
+                // Check if bigger square found
                 if (bitMap.map[rowIdx-diagonal+1][colIdx][1] >= diagonal &&
                     bitMap.map[rowIdx][colIdx-diagonal+1][0] >= diagonal) {
                         largestSquareV = diagonal;
@@ -190,9 +235,11 @@ int findSquare(char fileName[MAX_FILE_NAME_LENGTH]) {
             }
         }
     }
+    // Printing Not found if square was not found
     if (largestSquareV == 0) {
         printf("Not found");
     } else {
+        // Printing coords of the square if it was found
         printf("%d %d %d %d\n",
             largestSquareY-largestSquareV+1, largestSquareX-largestSquareV+1,
             largestSquareY, largestSquareX);
@@ -215,16 +262,10 @@ int helpPrint() {
     return 0;
 }
 
-/* Returns number based on start argument:
-    -1 for too many arguments (error)
-    0 for only 1 argument (error)
-    1 for help
-    2 for test
-    3 for horizontal line search
-    4 for vertical line search
-    5 for square search
-    10 for right argument count, but wrong argument (error) */
+// Finds the argument for program start and returns its code
+// All the codes are difined avode
 int programStartType(int argc, char *argv[]) {
+    // Check for error codes
     int programRunType = TOO_MANY_ARGS_CODE;
     if ((argc == 1) || (argc == 2 && !(strcmp(argv[1], "--help") == 0))) {
         programRunType = TOO_FEW_ARGS_CODE;
