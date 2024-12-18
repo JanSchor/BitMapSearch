@@ -72,7 +72,7 @@ Now we know, there is 3 by 3 square at these coordinates.
 
 For better understanding, I made this animation that shows the entire process of the algorithm:
 
-`Animation is not here yet, will be soon`.
+![Convertion](https://github.com/JanSchor/JanSchor/blob/main/gifs/bitmap-conv-anim-dark.gif?raw=true")
 
 ## How to run
 You need [*GCC*](https://gcc.gnu.org/install/) installed on your machine.
